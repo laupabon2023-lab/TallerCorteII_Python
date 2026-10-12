@@ -23,3 +23,50 @@
 | H13 | Se puede declarar un siniestro de una póliza que no existe, y después `/siniestros` revienta | SQLite trae las claves foráneas apagadas y la ruta no comprueba la póliza: queda un siniestro huérfano | M9 · 7. SQLite local e integración con FastAPI | `v0-semilla` | `curl -s -o /dev/null -w "%{http_code} " -X POST localhost:8000/polizas/999999/siniestros -H "Content-Type: application/json" -d '{"fecha":"2026-03-02","monto":850000,"descripcion":"Choque leve"}'; curl -s -o /dev/null -w "%{http_code}" localhost:8000/siniestros` | `200 500` |Activar las claves foráneas y comprobar la existencia de la póliza antes de crear el siniestro y 404 si la póliza no existe |
 | H14 | Un número repetido da 500 y el servicio deja de responder. Después de intentar registrar un duplicado, las siguientes solicitudes también fallan.| La sesión compartida de la base de datos queda en estado de error y no se recupera correctamente. | M8 · 4. Inyección de dependencias con Depends | `v0-semilla` | `D='{"numero":"POL-EV-00005","asegurado":"Elena Ortiz","tipo":"auto","prima":600000,"fecha_inicio":"2026-01-15","fecha_fin":"2027-01-14"}'; curl -s -o /dev/null -w "%{http_code} " -X POST localhost:8000/polizas -H "Content-Type: application/json" -d "$D"; curl -s -o /dev/null -w "%{http_code} " -X POST localhost:8000/polizas -H "Content-Type: application/json" -d "$D"; curl -s -o /dev/null -w "%{http_code}" localhost:8000/polizas` | `200 500 500` | Crear una sesión por petición, ejecutar rollback cuando ocurra un error y devolver 409 para duplicados |
 
+
+---
+
+# Parte C — Interpretación de las consultas
+
+> Conteos de `python contar_consultas.py` (sin modificarlo) con 10 y 2000 pólizas de 3 siniestros
+> cada una. Para decidir medimos también las estrategias que no dejamos en el código con
+> `python comparar_estrategias.py` (script añadido: cambia por un momento la función de
+> `servicios.py`, cuenta y la restaura; no modifica el servicio). Esos números van entre paréntesis.
+> Los tiempos son de una sola corrida en nuestra máquina y solo sirven de referencia.
+
+## `/polizas`
+
+Estrategia en el código: **selectinload** (`servicios.listar_polizas`). Con 10 pólizas salen 2
+consultas: una por las pólizas y un `SELECT ... WHERE poliza_id IN (...)` con sus 10 ids. Con 2000
+salen 5: la de pólizas más 4 de siniestros, porque SQLAlchemy parte el `IN` en bloques de 500 ids
+(2000 / 500 = 4). Crece con n/500, no con n. Con `lazy` serían 11 y 2001 (N+1: una consulta por
+póliza; 1761 ms con 2000). Con `joinedload` sale 1 en los dos tamaños, pero con 2000 pólizas tardó
+249 ms frente a 179 ms de selectinload: el `JOIN` de uno a muchos devuelve 6000 filas que repiten
+los datos de cada póliza 3 veces. Menos consultas no fue más rápido; además el JOIN rompe la
+paginación con `LIMIT`. Nos quedamos con selectinload.
+
+## `/polizas/{id}`
+
+Estrategia en el código: **lazy** (`db.get` y la relación se carga al serializar). Salen 2 consultas
+con 10 y con 2000 pólizas: una por la póliza y otra por sus siniestros cuando `PolizaSalida` los lee.
+No cambia con el tamaño porque siempre se pide una sola póliza. Aquí el código no sigue la regla
+«cargar todo de una vez» y la medición da exactamente igual: con `selectinload` también salen 2 y 2,
+porque para una sola póliza «la consulta aparte» es la misma consulta. `joinedload` baja a 1, pero
+es una consulta fija por petición (4.5 ms frente a 2.8 ms con lazy en nuestra corrida); dejamos lazy,
+que es lo más simple. Esto solo se ve contando.
+
+## `/siniestros`
+
+Estrategia en el código: **joinedload** de `Siniestro.poliza`. Sale 1 consulta con 10 y con 2000:
+un `SELECT` de siniestros con `LEFT OUTER JOIN polizas`. La relación es de muchos a uno, así que el
+JOIN no multiplica filas: cada siniestro trae exactamente una póliza. Con `lazy` serían 11 y 2001
+(una por póliza distinta; 1890 ms con 2000) y con `selectinload` 2 y 5 (264 ms frente a 102 ms).
+
+## `/resumen`
+
+Estrategia en el código: **agregada** (`COUNT` y `SUM` con `GROUP BY` en la base). Sale 1 consulta
+con 10 y con 2000: la base devuelve una fila por póliza y ningún siniestro viaja a Python. Aquí
+seguir la regla «cargar todo de una vez» da peor rendimiento: cargar las pólizas con sus siniestros
+(`selectinload`) y sumar en Python da 2 y 5 consultas y trae los 6000 siniestros para descartarlos;
+con 2000 pólizas tardó 225 ms frente a 52 ms de la agregación, unas 4 veces más. La agregación
+conserva además las pólizas sin siniestros (`LEFT OUTER JOIN` y `COALESCE`, con total 0).
