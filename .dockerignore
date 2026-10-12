@@ -1,0 +1,23 @@
+# Nada de secretos ni datos locales dentro de la imagen
+.env
+*.db
+*.db-journal
+data/
+
+# Entornos y cachés
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Lo que no hace falta para correr el servicio
+.git/
+.gitignore
+tests/
+plantillas/
+ia_tests_propuesta.py
+*.md
+!README.md
+CONSULTAS.csv
