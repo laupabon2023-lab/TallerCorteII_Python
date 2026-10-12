@@ -1,1 +1,16 @@
+# Python
+__pycache__/
 *.pyc
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Configuración local y secretos
+.env
+
+# Bases de datos (se crean con alembic upgrade head)
+*.db
+*.db-journal
