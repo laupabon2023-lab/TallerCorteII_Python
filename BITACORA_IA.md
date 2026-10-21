@@ -14,6 +14,7 @@
 | 5 | B | Laura Pabon | «¿Qué es lo que estamos haciendo en toda esta parte luego de los hallazgos?» |
 | 6 | B9 | Laura Pabon | Qué hacer cuando Docker Desktop no arranca por virtualización y no tengo permisos de administrador |
 | 7 | E | Laura Pabon | Genérame la bitácora de Ia de toda la conversación que hemos tenido |
+| 8 | A–E | Laura Pabon | A ChatGPT: revisión general de los entregables (HALLAZGOS.md, CONSULTAS.csv, EQUIPO.md, BITACORA_IA.md) |
 
 
 ## Aceptado
@@ -25,6 +26,7 @@
 | 3 | Refactor de `config.py`, `database.py`, `modelos.py`, `esquemas.py`, `main.py` y `servicios.py` | `tests/test_contrato.py` pasó 12/12 dos veces y quedó intacto | Nada |
 | 4 | Batería corregida y tres mutaciones para la Parte D | Cada mutación dejó la batería original en verde y la corregida en rojo en mi máquina | Nada |
 | 5 | Usar GitHub Codespaces para probar Docker | Mi equipo no permite activar WSL 2 sin permisos de administrador | No hago commits desde el Codespace: allí Git usaría otra identidad |
+| 6 | ChatGPT señaló que en H9 la «Corrección aplicada» tenía dos textos pegados y pidió distinguir lo propuesto de lo aplicado | Al revisarlo, H9 estaba mal unido y varias correcciones estaban redactadas como propuestas («Usar…», «Validar…») aunque ya estaban en el código | Reescribí la columna «Corrección aplicada» de las 14 filas en pasado, con el archivo donde está cada cambio; las otras 7 columnas no cambiaron |
 
 ## Rechazado
 
@@ -34,3 +36,4 @@
 | 2 | Interpretación de la Parte C con números (alternativas lazy, joinedload y tiempos) medidos en la máquina de la IA | La rúbrica califica la explicación de **mis** números; no los había medido yo | Corrí `comparar_estrategias.py` y reescribí los cuatro párrafos con mis conteos y tiempos. En mi máquina `joinedload` en `/polizas` hizo 1 consulta pero tardó más (249 ms) que `selectinload` (179 ms con 5 consultas), y sumar en Python el `/resumen` fue unas 4 veces más lento que agregar, no 10 |
 | 3 | Activar WSL 2 desde PowerShell como administrador (`dism` y `wsl --install`) para que arrancara Docker Desktop | No tengo permisos de administrador en el equipo | Probé la imagen en GitHub Codespaces: build, `/health`, usuario `appuser` y `healthy` |
 | 4 | La batería `ia_tests_propuesta.py` completa | Aserciones que no pueden fallar, aislamiento falso y datos aleatorios que dependen del estado de la base (ver `DICTAMEN_IA.md`) | `tests/test_ia_corregido.py` |
+| 5 | ChatGPT pidió revisar H5 porque obtuve `0 1` y `1 1` en dos ejecuciones y sugería decidir cuál registrar | La segunda corrida dio `1 1` porque la primera ya había dejado `POL-TEST-00001` en `app.db`; eso es el mismo defecto. Sobre un checkout limpio de `v0-semilla`, como el del calificador, la salida es `0 1` | Mantuve `0 1` en la tabla |
