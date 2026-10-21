@@ -34,6 +34,17 @@
 > `servicios.py`, cuenta y la restaura; no modifica el servicio). Esos números van entre paréntesis.
 > Los tiempos son de una sola corrida en nuestra máquina y solo sirven de referencia.
 
+## Resumen de la Parte C
+
+| Endpoint | Estrategia en el código | Consultas con 10 | Consultas con 2000 | Tiempo con 2000 | Cómo crece | Alternativas medidas (consultas 10 / 2000; tiempo con 2000) | Por qué esta estrategia |
+|----------|-------------------------|------------------|--------------------|-----------------|------------|-------------------------------------------------------------|-------------------------|
+| `/polizas` | selectinload | 2 | 5 | 178.6 ms | 1 + n/500: el `IN` se parte en bloques de 500 ids | lazy 11 / 2001 (1761 ms); joinedload 1 / 1 (249 ms) | Evita el N+1 de lazy; joinedload hace menos consultas pero repite cada póliza en 6000 filas y fue más lento |
+| `/polizas/{id}` | lazy | 2 | 2 | 2.8 ms | Constante: siempre es una sola póliza | selectinload 2 / 2 (5.3 ms); joinedload 1 / 1 (4.5 ms) | Con un solo objeto cargar todo de una vez da exactamente igual que lazy; se deja lo más simple |
+| `/siniestros` | joinedload | 1 | 1 | 102.1 ms | Constante: un solo `SELECT` con `JOIN` | lazy 11 / 2001 (1890 ms); selectinload 2 / 5 (264 ms) | Relación muchos a uno: el `JOIN` no multiplica filas |
+| `/resumen` | agregada | 1 | 1 | 51.6 ms | Constante: `GROUP BY` en la base | selectinload y suma en Python 2 / 5 (225 ms) | Solo se necesitan conteo y suma; traer 6000 siniestros a Python es unas 4 veces más lento |
+
+Los conteos de la estrategia en el código son los de `CONSULTAS.csv` (`contar_consultas.py`); los de las alternativas, de `comparar_estrategias.py`. Los párrafos siguientes explican cada fila.
+
 ## `/polizas`
 
 Estrategia en el código: **selectinload** (`servicios.listar_polizas`). Con 10 pólizas salen 2
